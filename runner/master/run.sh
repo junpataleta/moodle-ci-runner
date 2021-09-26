@@ -71,6 +71,9 @@ fi
 export PHP_VERSION="${PHP_VERSION:-7.1}"
 export PHP_SERVER_DOCKER="${PHP_SERVER_DOCKER:-moodlehq/moodle-php-apache:${PHP_VERSION}}"
 
+# Get the git commit.
+export GIT_COMMIT="$( cd "${CODEDIR}" && git rev-parse HEAD )"
+
 # Which Moodle version (XY) is being used.
 export MOODLE_VERSION=$(grep "\$branch" "${CODEDIR}"/version.php | sed "s/';.*//" | sed "s/^\$.*'//")
 # Which Mobile app version is used: latest (stable), next (master), x.y.z.
@@ -103,6 +106,7 @@ export TESTSUITE="${TESTSUITE:-}"
 export RUNCOUNT="${RUNCOUNT:-1}"
 export BEHAT_TIMING_FILENAME="${BEHAT_TIMING_FILENAME:-}"
 export BEHAT_INCREASE_TIMEOUT="${BEHAT_INCREASE_TIMEOUT:-}"
+export COVERAGE="${COVERAGE-}"
 
 # Remove some stuff that, simply, cannot be there based on $TESTTORUN
 if [ "${TESTTORUN}" == "phpunit" ]
@@ -196,6 +200,7 @@ echo "MLBACKEND_PYTHON_VERSION" >> "${ENVIROPATH}"
 echo "============================================================================"
 echo "= Job summary <<<"
 echo "============================================================================"
+echo "== GIT_COMMIT: ${GIT_COMMIT}"
 echo "== Workspace: ${WORKSPACE}"
 echo "== Build Id: ${BUILD_ID}"
 echo "== Output directory: ${OUTPUTDIR}"
@@ -217,6 +222,7 @@ echo "== BEHAT_NUM_RERUNS: ${BEHAT_NUM_RERUNS}"
 echo "== BEHAT_INCREASE_TIMEOUT: ${BEHAT_INCREASE_TIMEOUT}"
 echo "== BEHAT_SUITE: ${BEHAT_SUITE}"
 echo "== TAGS: ${TAGS}"
+echo "== COVERAGE: ${COVERAGE}"
 echo "== NAME: ${NAME}"
 echo "== MOBILE_APP_PORT: ${MOBILE_APP_PORT}"
 echo "== MOBILE_VERSION: ${MOBILE_VERSION}"
@@ -1042,22 +1048,50 @@ else
     PHPUNIT_SUITE=""
   fi
 
-  CMD="php vendor/bin/phpunit"
+  CLOVERFILE="/tmp/clover.xml"
+  CRAP4JFILE="/tmp/crap4j.xml"
+
+  if [ $COVERAGE = "pcov" ]
+  then
+    COVERAGEDIR="/shared/coverage"
+    CMD="php -dpcov.enabled=1 -dpcov.initial.files=1024 -dmemory_limit=-1 vendor/bin/phpunit"
+
+    # Note: Do not use --fail-on-risky here because it will fail when coverage has not been defined.
+    CMD="${CMD} --coverage-clover ${CLOVERFILE}"
+    CMD="${CMD} --coverage-crap4j ${CRAP4JFILE}"
+
+    docker exec -t "${WEBSERVER}" mkdir -p "${COVERAGEDIR}"
+    docker exec -t "${WEBSERVER}" sed \
+        -i '/xsi:noNamespaceSchemaLocation/a forceCoversAnnotation="true" failOnRisky="false"' \
+        phpunit.xml
+    docker cp "${SCRIPTPATH}/coverage.php" "${WEBSERVER}":/var/www/html/coverage.php
+  else
+    CMD="php vendor/bin/phpunit"
+    CMD="${CMD} --fail-on-risky"
+  fi
+
   CMD="${CMD} --disallow-test-output"
-  CMD="${CMD} --fail-on-risky"
   CMD="${CMD} --log-junit /shared/log.junit"
   CMD="${CMD} ${PHPUNIT_FILTER}"
   CMD="${CMD} ${PHPUNIT_SUITE}"
-  CMD="${CMD} --verbose"
 
   ITER=0
   EXITCODE=0
   while [[ ${ITER} -lt ${RUNCOUNT} ]]
   do
+    echo "${CMD}"
     docker exec -t "${WEBSERVER}" ${CMD}
     EXITCODE=$(($EXITCODE + $?))
     ITER=$(($ITER+1))
+
+    echo "== Exit code: ${EXITCODE}"
   done
+
+  if [ $COVERAGE = "pcov" ]
+  then
+    docker exec -t "${WEBSERVER}" php coverage.php "${CLOVERFILE}" "${CRAP4JFILE}" "${COVERAGEDIR}/${GIT_COMMIT}.json"
+  fi
+
 
   echo "============================================================================"
   echo ">>> stopsection <<<"
