@@ -642,19 +642,9 @@ then
   SHMMAP="--shm-size=2g"
 
   HASSELENIUM=1
-  SELVERSION="3.141.59"
-  # We are going brave here and go back to unpinned chrome version, because staying with
-  # the old Chrome 79 version (3.141.59-zinc) is making things really harder and harder.
-  # We are aware that, for headed runs, there are some zero-size errors still not fixed,
-  # but headless ones should run ok. For reference, the problems we are aware are being
-  # tracked (as of 14 Sep 2021) @:
-  #   - MDL-71108 : zero-size
-  #   - MDL-72306 : feedback
+  SELVERSION="latest"
   SELCHROMEIMAGE="selenium/standalone-chrome:${SELVERSION}"
   SELFIREFOXIMAGE="selenium/standalone-firefox:${SELVERSION}"
-
-  # Temporarily switching to custom image to include our bugfix for zero size failures.
-  SELCHROMEIMAGE="moodlehq/selenium-standalone-chrome:96.0-moodlehq"
 
   # Newer versions of Firefox do not allow Marionette to be disabled.
   # Version 47.0.1 is the latest version of Firefox we can support when Marionette is disabled.
