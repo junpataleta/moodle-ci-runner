@@ -93,6 +93,7 @@ export DBSLAVES="${DBSLAVES:-0}"
 
 # Test defaults
 export BROWSER="${BROWSER:-chrome}"
+export PROFILEBROWSER="${BROWSER}"
 export BROWSER_DEBUG="${BROWSER_DEBUG:-}"
 export BROWSER_HEADLESS="${BROWSER_HEADLESS:-}"
 export DISABLE_MARIONETTE=
@@ -107,6 +108,7 @@ export RUNCOUNT="${RUNCOUNT:-1}"
 export BEHAT_TIMING_FILENAME="${BEHAT_TIMING_FILENAME:-}"
 export BEHAT_INCREASE_TIMEOUT="${BEHAT_INCREASE_TIMEOUT:-}"
 export COVERAGE="${COVERAGE-}"
+export EXTRA_CAPABILITIES="${EXTRA_CAPABILITIES:-}"
 
 # Remove some stuff that, simply, cannot be there based on $TESTTORUN
 if [ "${TESTTORUN}" == "phpunit" ]
@@ -186,9 +188,11 @@ echo "DBUSER" >> "${ENVIROPATH}"
 echo "DBPASS" >> "${ENVIROPATH}"
 echo "DBNAME" >> "${ENVIROPATH}"
 echo "DBCOLLATION" >> "${ENVIROPATH}"
+echo "PROFILEBROWSER" >> "${ENVIROPATH}"
 echo "BROWSER" >> "${ENVIROPATH}"
 echo "BROWSER_DEBUG" >> "${ENVIROPATH}"
 echo "BROWSER_HEADLESS" >> "${ENVIROPATH}"
+echo "EXTRA_CAPABILITIES" >> "${ENVIROPATH}"
 echo "WEBSERVER" >> "${ENVIROPATH}"
 echo "BEHAT_TOTAL_RUNS" >> "${ENVIROPATH}"
 echo "BEHAT_NUM_RERUNS" >> "${ENVIROPATH}"
@@ -228,6 +232,7 @@ echo "== MOBILE_APP_PORT: ${MOBILE_APP_PORT}"
 echo "== MOBILE_VERSION: ${MOBILE_VERSION}"
 echo "== PLUGINSTOINSTALL: ${PLUGINSTOINSTALL}"
 echo "== TESTSUITE: ${TESTSUITE}"
+echo "== EXTRA CAPABILITIES: ${EXTRA_CAPABILITIES}"
 echo "== Environment: ${ENVIROPATH}"
 echo "============================================================================"
 
@@ -653,8 +658,12 @@ then
       SELFIREFOXIMAGE="moodlehq/moodle-standalone-firefox:3.141.59_47.0.1"
   fi
 
+  if [ "$BROWSER" == "mobile" ]
+  then
+      PROFILEBROWSER="chrome"
+  fi
 
-  if [ "$BROWSER" == "chrome" ]
+  if [ "$PROFILEBROWSER" == "chrome" ]
   then
 
     if [ ! -z "$MOBILE_VERSION" ] && [ -d "${PLUGINSDIR}/local/moodlemobileapp" ]

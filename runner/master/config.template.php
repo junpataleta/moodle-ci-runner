@@ -63,7 +63,8 @@ $CFG->phpunit_prefix = 't_';
     getenv('BROWSER'),
     getenv('BEHAT_TOTAL_RUNS'),
     !empty(getenv('BEHAT_TIMING_FILENAME')),
-    getenv('BEHAT_INCREASE_TIMEOUT')
+    getenv('BEHAT_INCREASE_TIMEOUT'),
+    getenv('EXTRA_CAPABILITIES')
 );
 
 define('PHPUNIT_LONGTEST', true);
@@ -150,13 +151,15 @@ class moodlehq_ci_runner {
      * @param string $runcount
      * @param bool $usetimingfile
      * @param string $timeoutfactor
+     * @param null|string $extracapabilities Any additional capability config to merge in
      */
     public static function set_behat_configuration(
         string $behathostname,
         string $browsername,
         string $runcount,
         bool $usetimingfile,
-        string $timeoutfactor
+        string $timeoutfactor,
+        ?string $extracapabilities = null
     ) {
         global $CFG;
 
@@ -164,7 +167,7 @@ class moodlehq_ci_runner {
         $CFG->behat_dataroot  = '/var/www/behatdata/run';
         $CFG->behat_prefix = 'b_';
 
-        self::configure_profiles_for_browser($browsername, $runcount);
+        self::configure_profiles_for_browser($browsername, $runcount, $extracapabilities);
 
         $CFG->behat_faildump_path = '/shared';
 
@@ -183,9 +186,17 @@ class moodlehq_ci_runner {
      * @param string $browsername
      * @param string $runcount
      */
-    public static function configure_profiles_for_browser(string $browser, string $runs) {
+    public static function configure_profiles_for_browser(
+        string $browser,
+        string $runs,
+        ?string $extracapabilities = null
+    ) {
         global $CFG;
         switch ($browser) {
+            case 'mobile':
+                $profile = self::get_mobile_profile();
+                $browser = 'chrome';
+                break;
             case 'chrome':
                 $profile = self::get_chrome_profile();
                 break;
@@ -195,6 +206,12 @@ class moodlehq_ci_runner {
             default:
                 $profile = [];
                 break;
+        }
+
+        if ($extracapabilities) {
+            if ($extracapabilities = json_decode($extracapabilities, true)) {
+                $profile = array_merge_recursive($profile, (array) $extracapabilities);
+            }
         }
 
         // Set the default profile to use the first selenium URL only.
@@ -283,6 +300,13 @@ class moodlehq_ci_runner {
         }
 
         return $profile;
+    }
+
+    /**
+     * Get the mobile profile setting the specified user agent and any optional capabilities.
+     */
+    protected static function get_mobile_profile(): array {
+        return self::get_chrome_profile();
     }
 
     /**
